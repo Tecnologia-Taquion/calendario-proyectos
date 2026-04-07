@@ -494,6 +494,10 @@
       </svg>
       Actualizar
     </button>
+    <a href="/logout" style="background:transparent;border:1.5px solid #E5E7EB;color:#9CA3AF;padding:7px 14px;border-radius:50px;font-size:0.73rem;font-weight:700;font-family:'Nunito',sans-serif;text-decoration:none;display:flex;align-items:center;gap:5px;transition:all .2s;" onmouseover="this.style.borderColor='#374151';this.style.color='#374151'" onmouseout="this.style.borderColor='#E5E7EB';this.style.color='#9CA3AF'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Salir
+    </a>
   </div>
 </header>
 
@@ -865,7 +869,7 @@
     document.getElementById('error-msg').style.display = 'none';
 
     try {
-      const res = await fetch('http://localhost:3000/api/events');
+      const res = await fetch('/api/events');
       if (!res.ok) throw new Error(`Error ${res.status}`);
       allEvents = await res.json();
 
@@ -893,7 +897,7 @@
   async function refreshData() {
     const btn = document.getElementById('btn-refresh');
     btn.classList.add('loading');
-    await fetch('http://localhost:3000/api/refresh', { method: 'POST' });
+    await fetch('/api/refresh', { method: 'POST' });
     await loadCalendar();
     btn.classList.remove('loading');
   }
