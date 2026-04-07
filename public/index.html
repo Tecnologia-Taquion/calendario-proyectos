@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendario de Proyectos</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales/es.global.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito', system-ui, sans-serif;
+      background: #FDFCF0;
+      color: #374151;
+      min-height: 100vh;
+    }
+
+    /* ══════════════════════════════
+       HEADER
+    ══════════════════════════════ */
+    header {
+      background: #fff;
+      border-bottom: 1px solid #F0EFE5;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .header-brand { display: flex; align-items: center; gap: 11px; }
+    .header-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg,#E3F2FD,#F3E5F5);
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 800; color: #374151; letter-spacing: -0.3px; }
+    .subtitle { font-size: 0.72rem; color: #9CA3AF; margin-top: 1px; font-weight: 500; }
+
+    /* View toggle */
+    .view-toggle {
+      display: flex;
+      background: #F3F4F6;
+      border-radius: 50px;
+      padding: 4px;
+      gap: 2px;
+    }
+    .view-btn {
+      border: none; background: transparent; cursor: pointer;
+      padding: 6px 16px; border-radius: 50px;
+      font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+      color: #6B7280; display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s;
+    }
+    .view-btn svg { flex-shrink: 0; }
+    .view-btn.active { background: #fff; color: #374151; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .view-btn:hover:not(.active) { color: #374151; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .legend { display: flex; gap: 6px; }
+    .legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.7rem; font-weight: 700; color: #6B7280;
+      background: #F9F8F2; padding: 4px 10px; border-radius: 50px;
+      border: 1px solid #EDEDDE;
+    }
+    .legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    .btn-refresh {
+      background: #374151; border: none; color: white;
+      padding: 8px 16px; border-radius: 50px; cursor: pointer;
+      font-size: 0.75rem; font-weight: 700; font-family: 'Nunito', sans-serif;
+      display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 2px 8px rgba(55,65,81,0.2);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-refresh:hover { background: #1F2937; transform: translateY(-1px); }
+    .btn-refresh.loading svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ══════════════════════════════
+       FILTER BAR
+    ══════════════════════════════ */
+    .filter-bar {
+      background: #fff;
+      border-bottom: 1px solid #F0EFE5;
+      padding: 10px 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 68px;
+      z-index: 150;
+    }
+
+    .filter-search {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .filter-search svg {
+      position: absolute; left: 11px;
+      color: #9CA3AF; pointer-events: none;
+    }
+    .filter-search input {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.8rem; font-weight: 600;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 50px;
+      padding: 7px 14px 7px 34px;
+      outline: none; color: #374151;
+      background: #FDFCF0;
+      width: 220px;
+      transition: border-color 0.2s;
+    }
+    .filter-search input:focus { border-color: #C4B5FD; }
+    .filter-search input::placeholder { color: #C4C4B8; }
+
+    .filter-separator {
+      width: 1px; height: 22px;
+      background: #E5E7EB;
+    }
+
+    .filter-label { font-size: 0.72rem; font-weight: 800; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.6px; }
+
+    .chip {
+      border: 1.5px solid #E5E7EB; background: #F9F8F2;
+      color: #6B7280; padding: 5px 14px; border-radius: 50px;
+      font-family: 'Nunito', sans-serif; font-size: 0.75rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      transition: all 0.18s;
+    }
+    .chip::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: 0;
+      transition: opacity 0.18s;
+    }
+    .chip:hover { border-color: #C4B5FD; color: #6D28D9; }
+    .chip.active { background: #374151; color: #fff; border-color: #374151; }
+    .chip.active::before { opacity: 1; }
+    .chip[data-filter="active"].active  { background: #065F46; border-color: #065F46; }
+    .chip[data-filter="backlog"].active { background: #92400E; border-color: #92400E; }
+    .chip[data-filter="done"].active    { background: #6B7280; border-color: #6B7280; }
+
+    .filter-count {
+      margin-left: auto;
+      font-size: 0.72rem; font-weight: 700; color: #9CA3AF;
+      background: #F3F4F6; padding: 4px 12px; border-radius: 50px;
+    }
+
+    /* ══════════════════════════════
+       MAIN
+    ══════════════════════════════ */
+    main { padding: 20px 28px; max-width: 1800px; margin: 0 auto; }
+
+    #loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 55vh; flex-direction: column; gap: 14px;
+      color: #9CA3AF; font-weight: 700;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #EDE9D8; border-top-color: #374151;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+
+    #error-msg {
+      display: none; background: #FFF7ED; border: 1px solid #FDE68A;
+      border-radius: 16px; padding: 14px 20px; margin-bottom: 18px;
+      color: #92400E; font-size: 0.85rem; font-weight: 600;
+    }
+
+    /* ══════════════════════════════
+       CALENDAR VIEW
+    ══════════════════════════════ */
+    #calendar-wrapper {
+      background: #fff; border-radius: 24px; padding: 24px 24px 28px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.04); display: none;
+    }
+    .fc { font-family: 'Nunito', sans-serif; }
+    .fc .fc-toolbar { margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+    .fc .fc-toolbar-title { font-size: 1.2rem; font-weight: 800; color: #374151; text-transform: capitalize; letter-spacing: -0.3px; }
+    .fc .fc-button {
+      background: #F9F8F2 !important; border: 1.5px solid #EDEDDE !important;
+      color: #374151 !important; border-radius: 50px !important;
+      font-size: 0.75rem !important; font-weight: 700 !important;
+      font-family: 'Nunito', sans-serif !important; padding: 5px 16px !important;
+      box-shadow: none !important; transition: all 0.18s !important; text-transform: capitalize;
+    }
+    .fc .fc-button:hover { background: #EDEDDE !important; }
+    .fc .fc-button:active, .fc .fc-button-active { background: #374151 !important; color: #fff !important; border-color: #374151 !important; }
+    .fc .fc-button:focus { box-shadow: none !important; }
+    .fc .fc-col-header-cell { background: transparent; border: none !important; padding: 10px 0 12px; }
+    .fc .fc-col-header-cell-cushion { font-size: 0.7rem; font-weight: 800; color: #9CA3AF; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: #F5F4EC !important; }
+    .fc-theme-standard .fc-scrollgrid { border-color: #F5F4EC !important; border-radius: 16px; overflow: hidden; }
+    .fc .fc-daygrid-day-frame { padding: 8px 6px 6px; min-height: 80px; }
+    .fc .fc-daygrid-day-number { font-size: 0.8rem; font-weight: 700; color: #6B7280; text-decoration: none; padding: 2px 4px; border-radius: 8px; }
+    .fc .fc-day-other .fc-daygrid-day-number { color: #D1D5DB; }
+    .fc .fc-day-today { background: transparent !important; }
+    .fc .fc-day-today .fc-daygrid-day-number {
+      background: #E9D8FD; color: #6D28D9; border-radius: 50%;
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.78rem; border: 2.5px solid #C4B5FD;
+    }
+    .fc .fc-daygrid-event {
+      border-radius: 8px !important; font-size: 0.7rem; font-weight: 700;
+      padding: 2px 7px !important; cursor: pointer; border: none !important;
+      margin-bottom: 2px !important; transition: transform 0.25s, opacity 0.25s;
+    }
+    .fc .fc-daygrid-event:hover { transform: translateY(-2px); opacity: 0.85; }
+    .fc .fc-daygrid-more-link { font-size: 0.67rem; font-weight: 700; color: #9CA3AF; text-decoration: none; }
+    .fc .fc-daygrid-more-link:hover { color: #374151; }
+    .fc .fc-popover { border-radius: 16px !important; border: 1px solid #EDEDDE !important; box-shadow: 0 12px 40px rgba(0,0,0,0.1) !important; overflow: hidden; }
+    .fc .fc-popover-header { background: #F9F8F2 !important; font-weight: 700; font-size: 0.78rem; padding: 10px 14px !important; color: #374151; }
+
+    /* ══════════════════════════════
+       GANTT VIEW
+    ══════════════════════════════ */
+    :root { --name-col: 280px; --month-w: 90px; }
+
+    #gantt-view { display: none; }
+
+    .gantt-card {
+      background: #fff; border-radius: 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+      /* NO overflow:hidden — needed so inner sticky header works with page scroll */
+    }
+
+    /* Sticky month header — lives OUTSIDE the horizontal scroll container */
+    .gantt-sticky-head {
+      position: sticky;
+      top: 122px; /* page header (~66px) + filter bar (~56px) */
+      z-index: 100;
+      background: #F9F8F2;
+      border-bottom: 2px solid #EDEDDE;
+      border-radius: 24px 24px 0 0;
+      overflow: hidden; /* clips the inner scroll area */
+    }
+
+    .gantt-head-scroll {
+      overflow: hidden; /* scrollLeft driven by JS, no native scrollbar */
+      display: flex;
+    }
+
+    .gantt-head-inner {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .gantt-name-header {
+      width: var(--name-col); min-width: var(--name-col);
+      flex-shrink: 0;
+      background: #F9F8F2;
+      padding: 12px 20px;
+      font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #9CA3AF;
+      border-right: 1px solid #EDEDDE;
+    }
+
+    .gantt-months-header {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    /* Body scroll container */
+    .gantt-scroll-wrap {
+      overflow-x: auto;
+      overflow-y: visible;
+      border-radius: 0 0 24px 24px;
+    }
+
+    .gantt-month-cell {
+      width: var(--month-w); min-width: var(--month-w);
+      padding: 8px 0 10px;
+      text-align: center;
+      border-right: 1px solid #EDEDDE;
+    }
+    .gantt-month-cell .m-name {
+      display: block; font-size: 0.68rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.8px; color: #374151;
+    }
+    .gantt-month-cell .m-year {
+      display: block; font-size: 0.62rem; font-weight: 600; color: #9CA3AF; margin-top: 1px;
+    }
+    .gantt-month-cell.current-month { background: #F3E5F5; }
+    .gantt-month-cell.current-month .m-name { color: #6D28D9; }
+
+    /* Body */
+    .gantt-body {
+      position: relative;
+      flex: 1;
+    }
+
+    /* Today line */
+    .gantt-today-line {
+      position: absolute; top: 0; bottom: 0;
+      width: 2px; background: #C4B5FD;
+      z-index: 10; pointer-events: none;
+    }
+    .gantt-today-line::before {
+      content: 'HOY';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      background: #6D28D9; color: white;
+      font-size: 0.55rem; font-weight: 800; letter-spacing: 0.5px;
+      padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+    }
+
+    /* Rows */
+    .gantt-row {
+      display: flex;
+      border-bottom: 1px solid #F5F4EC;
+      min-height: 52px;
+      transition: background 0.2s;
+    }
+    .gantt-row:hover { background: #FDFCF5; }
+    .gantt-row:last-child { border-bottom: none; }
+
+    .gantt-name-cell {
+      width: var(--name-col); min-width: var(--name-col);
+      position: sticky; left: 0; z-index: 5;
+      background: inherit;
+      padding: 0 20px;
+      display: flex; align-items: center; gap: 10px;
+      border-right: 1px solid #EDEDDE;
+    }
+    .gantt-row:hover .gantt-name-cell { background: #FDFCF5; }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.active  { background: #34D399; }
+    .status-dot.backlog { background: #FCD34D; }
+    .status-dot.done    { background: #D1D5DB; }
+
+    .gantt-account-name {
+      font-size: 0.82rem; font-weight: 700; color: #374151;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    .gantt-timeline-cell {
+      position: relative;
+      display: flex; align-items: center;
+    }
+
+    /* Month grid lines inside rows */
+    .gantt-vlines {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; pointer-events: none; z-index: 0;
+    }
+    .gantt-vline {
+      width: var(--month-w); min-width: var(--month-w);
+      border-right: 1px solid #F0EFE5;
+      flex-shrink: 0;
+    }
+    .gantt-vline.current-month { background: rgba(243,229,245,0.25); }
+
+    /* Bars */
+    .gantt-bar {
+      position: absolute;
+      height: 30px; border-radius: 50px;
+      display: flex; align-items: center;
+      padding: 0 12px; cursor: pointer;
+      z-index: 2; overflow: hidden;
+      transition: transform 0.25s, filter 0.25s;
+      min-width: 30px;
+      white-space: nowrap;
+    }
+    .gantt-bar:hover { transform: translateY(-2px); filter: brightness(0.96); }
+    .gantt-bar span {
+      font-size: 0.7rem; font-weight: 800;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 100%;
+    }
+    .bar-active  { background: #A7F3D0; color: #065F46; }
+    .bar-backlog { background: #FDE68A; color: #78350F; }
+    .bar-done    { background: #E5E7EB; color: #6B7280; }
+
+    /* Infinite bar: gradient fade to right + arrow */
+    .bar-infinite {
+      border-radius: 50px 0 0 50px !important; /* open on the right */
+    }
+    .bar-active.bar-infinite  { background: linear-gradient(to right, #A7F3D0, #6EE7B0aa); }
+    .bar-backlog.bar-infinite { background: linear-gradient(to right, #FDE68A, #FCD34Daa); }
+    .bar-infinite::after {
+      content: '→';
+      position: absolute; right: -18px; top: 50%; transform: translateY(-50%);
+      font-size: 0.85rem; font-weight: 900;
+      opacity: 0.7;
+    }
+    .bar-active.bar-infinite::after  { color: #065F46; }
+    .bar-backlog.bar-infinite::after { color: #78350F; }
+
+    /* Empty state */
+    .gantt-empty {
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px 20px; color: #9CA3AF; font-weight: 700; font-size: 0.9rem;
+    }
+
+    /* ══════════════════════════════
+       MODAL
+    ══════════════════════════════ */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(55,65,81,0.22); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; opacity: 0; visibility: hidden;
+      transition: opacity 0.22s, visibility 0.22s;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal {
+      background: #fff; border-radius: 24px; padding: 30px;
+      width: 420px; max-width: 92vw;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.12);
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      border: 1px solid #F0EFE5;
+    }
+    .modal-overlay.active .modal { transform: translateY(0) scale(1); }
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
+    .modal-title { font-size: 1.15rem; font-weight: 800; color: #374151; line-height: 1.3; flex: 1; padding-right: 12px; }
+    .modal-close {
+      background: #F3F4F6; border: none; cursor: pointer; color: #9CA3AF;
+      width: 30px; height: 30px; border-radius: 50%; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background 0.18s, color 0.18s;
+    }
+    .modal-close:hover { background: #E5E7EB; color: #374151; }
+    .modal-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 50px; font-size: 0.7rem;
+      font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 18px;
+    }
+    .modal-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+    .modal-badge.done    { background: #F3F4F6; color: #6B7280; }
+    .modal-badge.done::before { background: #9CA3AF; }
+    .modal-badge.active  { background: #ECFDF5; color: #065F46; }
+    .modal-badge.active::before { background: #10B981; }
+    .modal-badge.backlog { background: #FFF7ED; color: #92400E; }
+    .modal-badge.backlog::before { background: #F59E0B; }
+    .modal-divider { height: 1px; background: #F3F4F6; margin-bottom: 14px; }
+    .modal-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #F9F8F2; }
+    .modal-row:last-child { border-bottom: none; }
+    .modal-label { color: #9CA3AF; width: 105px; flex-shrink: 0; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; }
+    .modal-value { color: #374151; font-weight: 700; font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="header-brand">
+    <div class="header-icon">📅</div>
+    <div>
+      <h1>Calendario de Proyectos</h1>
+      <div class="subtitle">Un evento por cuenta &mdash; Notion</div>
+    </div>
+  </div>
+
+  <div class="view-toggle">
+    <button class="view-btn active" data-view="calendar" onclick="switchView('calendar')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Mensual
+    </button>
+    <button class="view-btn" data-view="gantt" onclick="switchView('gantt')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+      Línea de tiempo
+    </button>
+  </div>
+
+  <div class="header-right">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#34D399"></div>En progreso</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FCD34D"></div>Backlog</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#D1D5DB"></div>Finalizado</div>
+    </div>
+    <button class="btn-refresh" id="btn-refresh" onclick="refreshData()">
+      <svg id="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+</header>
+
+<!-- ═══ FILTER BAR ═══ -->
+<div class="filter-bar">
+  <div class="filter-search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input" placeholder="Buscar cuenta..." oninput="handleSearch(this.value)" />
+  </div>
+
+  <div class="filter-separator"></div>
+  <span class="filter-label">Estado</span>
+
+  <button class="chip active" data-filter="all"     onclick="setFilter('all')">Todos</button>
+  <button class="chip"        data-filter="active"  onclick="setFilter('active')">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>
+    En progreso
+  </button>
+  <button class="chip"        data-filter="backlog" onclick="setFilter('backlog')">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>
+    Backlog
+  </button>
+  <button class="chip"        data-filter="done"    onclick="setFilter('done')">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    Finalizado
+  </button>
+
+  <div class="filter-count" id="filter-count">— cuentas</div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+  <div id="error-msg"></div>
+  <div id="loading"><div class="spinner"></div><span>Cargando datos desde Notion...</span></div>
+
+  <!-- Calendar -->
+  <div id="calendar-wrapper"><div id="calendar"></div></div>
+
+  <!-- Gantt -->
+  <div id="gantt-view">
+    <div class="gantt-card">
+
+      <!-- Month header: OUTSIDE the scroll container so sticky works with page scroll -->
+      <div class="gantt-sticky-head">
+        <div class="gantt-head-scroll" id="gantt-head-scroll">
+          <div class="gantt-head-inner">
+            <div class="gantt-name-header">Cuenta</div>
+            <div class="gantt-months-header" id="gantt-months-header"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rows: horizontally scrollable body -->
+      <div class="gantt-scroll-wrap" id="gantt-scroll">
+        <div id="gantt-body" style="position:relative">
+          <div class="gantt-today-line" id="gantt-today-line"></div>
+          <div id="gantt-rows"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ═══ MODAL ═══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modal-badge"></div>
+    <div class="modal-divider"></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+  /* ═══════════════════════════════════════
+     STATE
+  ═══════════════════════════════════════ */
+  const NAME_COL_W = 280;
+  const MONTH_W    = 90;
+
+  let allEvents     = [];
+  let calendarInst  = null;
+  let currentView   = 'calendar';
+  let activeFilter  = 'all';
+  let searchQuery   = '';
+
+  /* ═══════════════════════════════════════
+     HELPERS
+  ═══════════════════════════════════════ */
+  function getEventType(ev) {
+    const e = ev.extendedProps?.estados || [];
+    if (e.length && e.every(s => s === 'Listo')) return 'done';
+    if (e.includes('En progreso')) return 'active';
+    return 'backlog';
+  }
+
+  function filterEvents() {
+    return allEvents.filter(ev => {
+      const typeMatch   = activeFilter === 'all' || getEventType(ev) === activeFilter;
+      const searchMatch = !searchQuery || ev.title.toLowerCase().includes(searchQuery);
+      return typeMatch && searchMatch;
+    });
+  }
+
+  function formatDate(s) {
+    if (!s) return '—';
+    const [y,m,d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function getBadgeClass(ev) {
+    const t = getEventType(ev);
+    if (t === 'done')    return 'done';
+    if (t === 'active')  return 'active';
+    return 'backlog';
+  }
+  function getBadgeLabel(ev) {
+    const t = getEventType(ev);
+    if (t === 'done')    return 'Finalizado';
+    if (t === 'active')  return 'En progreso';
+    return 'Backlog';
+  }
+
+  const PASTEL = {
+    active:  { bg: '#A7F3D0', border: '#6EE7B7', text: '#065F46' },
+    backlog: { bg: '#FDE68A', border: '#FCD34D', text: '#78350F' },
+    done:    { bg: '#E5E7EB', border: '#D1D5DB', text: '#6B7280' },
+  };
+
+  /* ═══════════════════════════════════════
+     MODAL
+  ═══════════════════════════════════════ */
+  let _currentModalEvent = null;
+
+  function openModal(info) {
+    const ev = info.event || info; // accept both FC event-click and direct event obj
+    _currentModalEvent = ev;
+    const { title, extendedProps } = ev;
+    const { estados, projectCount, deadlineDisplay, wonDisplay, noDeadline } = extendedProps;
+
+    document.getElementById('modal-title').textContent = title;
+    const badgeEl = document.getElementById('modal-badge');
+    const cls = getBadgeClass(ev);
+    badgeEl.className = `modal-badge ${cls}`;
+    badgeEl.textContent = getBadgeLabel(ev);
+
+    const deadlineValue = noDeadline
+      ? '<span style="color:#9CA3AF;font-style:italic">Sin deadline</span>'
+      : formatDate(deadlineDisplay);
+
+    document.getElementById('modal-body').innerHTML = `
+      <div class="modal-row"><span class="modal-label">Fecha WON</span><span class="modal-value">${formatDate(wonDisplay)}</span></div>
+      <div class="modal-row"><span class="modal-label">Deadline</span><span class="modal-value">${deadlineValue}</span></div>
+      <div class="modal-row"><span class="modal-label">Proyectos</span><span class="modal-value">${projectCount}</span></div>
+      <div class="modal-row"><span class="modal-label">Estados</span><span class="modal-value">${(estados||[]).join(', ')||'—'}</span></div>
+    `;
+    document.getElementById('modal-overlay').classList.add('active');
+  }
+
+  function openModalByIndex(idx) {
+    openModal(filterEvents()[idx]);
+  }
+
+  function closeModal(e) {
+    if (e && e.target !== document.getElementById('modal-overlay')) return;
+    document.getElementById('modal-overlay').classList.remove('active');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ═══════════════════════════════════════
+     FILTER LOGIC
+  ═══════════════════════════════════════ */
+  function setFilter(f) {
+    activeFilter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+    applyFilters();
+  }
+
+  function handleSearch(v) {
+    searchQuery = v.toLowerCase().trim();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const filtered = filterEvents();
+    document.getElementById('filter-count').textContent = `${filtered.length} cuenta${filtered.length !== 1 ? 's' : ''}`;
+    if (currentView === 'calendar') refreshCalendar(filtered);
+    else renderGantt(filtered);
+  }
+
+  /* ═══════════════════════════════════════
+     VIEW TOGGLE
+  ═══════════════════════════════════════ */
+  function switchView(v) {
+    currentView = v;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+    document.getElementById('calendar-wrapper').style.display = v === 'calendar' ? 'block' : 'none';
+    document.getElementById('gantt-view').style.display       = v === 'gantt'    ? 'block' : 'none';
+    if (v === 'gantt') renderGantt(filterEvents());
+  }
+
+  /* ═══════════════════════════════════════
+     CALENDAR VIEW
+  ═══════════════════════════════════════ */
+  function refreshCalendar(events) {
+    if (!calendarInst) return;
+    calendarInst.removeAllEvents();
+    calendarInst.addEventSource(events.map(remapEvent));
+  }
+
+  function remapEvent(ev) {
+    const t = getEventType(ev);
+    const p = PASTEL[t];
+    return { ...ev, backgroundColor: p.bg, borderColor: p.border, textColor: p.text };
+  }
+
+  function initCalendar(events) {
+    if (calendarInst) calendarInst.destroy();
+    calendarInst = new FullCalendar.Calendar(document.getElementById('calendar'), {
+      locale: 'es',
+      initialView: 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridYear' },
+      events: events.map(remapEvent),
+      eventClick: openModal,
+      eventDisplay: 'block',
+      dayMaxEvents: 4,
+      height: 'auto',
+      eventDidMount(info) { info.el.style.color = info.event.textColor; },
+    });
+    calendarInst.render();
+
+    // Jump to most recent active event
+    const active = events.filter(e => getEventType(e) === 'active');
+    if (active.length) {
+      const latest = new Date(Math.max(...active.map(e => new Date(e.start))));
+      calendarInst.gotoDate(latest);
+    }
+  }
+
+  /* ═══════════════════════════════════════
+     GANTT VIEW
+  ═══════════════════════════════════════ */
+  function renderGantt(events) {
+    const rowsEl   = document.getElementById('gantt-rows');
+    const monthsEl = document.getElementById('gantt-months-header');
+    const todayEl  = document.getElementById('gantt-today-line');
+
+    if (!events.length) {
+      rowsEl.innerHTML = '<div class="gantt-empty">No hay cuentas que coincidan con los filtros.</div>';
+      monthsEl.innerHTML = '';
+      todayEl.style.display = 'none';
+      return;
+    }
+
+    // ── Compute timeline range ──
+    const wonDates = events.map(e => new Date(e.extendedProps.wonDisplay));
+    const endDates = events.map(e => new Date(e.extendedProps.deadlineDisplay));
+
+    const dataMin = new Date(Math.min(...wonDates));
+    const dataMax = new Date(Math.max(...endDates));
+
+    // Start = 1st day of (dataMin month - 1), End = 1st day of (dataMax month + 2)
+    const tlStart = new Date(dataMin.getFullYear(), dataMin.getMonth() - 1, 1);
+    const tlEnd   = new Date(dataMax.getFullYear(), dataMax.getMonth() + 2, 1);
+
+    // Build months list
+    const months = [];
+    let cur = new Date(tlStart);
+    while (cur < tlEnd) {
+      months.push(new Date(cur));
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+    const totalW = months.length * MONTH_W;
+    const tlMs   = tlEnd - tlStart;
+
+    function toPx(date) {
+      return ((date - tlStart) / tlMs) * totalW;
+    }
+
+    const today    = new Date();
+    const todayX   = toPx(today);
+    const nowMonth = today.getMonth();
+    const nowYear  = today.getFullYear();
+
+    // ── Month headers ──
+    const MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    monthsEl.innerHTML = months.map(m => {
+      const isCurrent = m.getMonth() === nowMonth && m.getFullYear() === nowYear;
+      return `<div class="gantt-month-cell${isCurrent ? ' current-month' : ''}" style="width:${MONTH_W}px;min-width:${MONTH_W}px">
+        <span class="m-name">${MES[m.getMonth()]}</span>
+        <span class="m-year">${m.getFullYear()}</span>
+      </div>`;
+    }).join('');
+
+    // ── Today line ──
+    if (todayX >= 0 && todayX <= totalW) {
+      todayEl.style.display = 'block';
+      todayEl.style.left = (NAME_COL_W + todayX) + 'px';
+    } else {
+      todayEl.style.display = 'none';
+    }
+
+    // ── V-lines template (reused per row) ──
+    const vlinesHTML = months.map((m, i) => {
+      const isCurrent = m.getMonth() === nowMonth && m.getFullYear() === nowYear;
+      return `<div class="gantt-vline${isCurrent ? ' current-month' : ''}" style="width:${MONTH_W}px;min-width:${MONTH_W}px"></div>`;
+    }).join('');
+
+    // ── Rows ──
+    rowsEl.innerHTML = events.map((ev, idx) => {
+      const type       = getEventType(ev);
+      const noDeadline = ev.extendedProps.noDeadline;
+      const wonDate    = new Date(ev.extendedProps.wonDisplay);
+      const barLeft    = Math.max(0, toPx(wonDate));
+
+      let barW, extraClass = '';
+      if (noDeadline) {
+        // Extend to the end of the visible timeline; arrow shown via CSS
+        barW       = Math.max(totalW - barLeft, 40);
+        extraClass = 'bar-infinite';
+      } else {
+        const endDate  = new Date(ev.extendedProps.deadlineDisplay);
+        const barRight = Math.min(totalW, toPx(endDate));
+        barW = Math.max(barRight - barLeft, 28);
+      }
+
+      return `
+        <div class="gantt-row">
+          <div class="gantt-name-cell">
+            <div class="status-dot ${type}"></div>
+            <span class="gantt-account-name" title="${ev.title}">${ev.title}</span>
+          </div>
+          <div class="gantt-timeline-cell" style="width:${totalW}px;min-width:${totalW}px">
+            <div class="gantt-vlines">${vlinesHTML}</div>
+            <div class="gantt-bar bar-${type} ${extraClass}" style="left:${barLeft}px;width:${barW}px" onclick="openModalByIndex(${idx})">
+              <span>${ev.title}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // ── Sync header scroll with body scroll ──
+    const scrollEl = document.getElementById('gantt-scroll');
+    const headScrollEl = document.getElementById('gantt-head-scroll');
+
+    // Remove previous listener to avoid duplicates on re-render
+    scrollEl.onscroll = () => {
+      headScrollEl.scrollLeft = scrollEl.scrollLeft;
+    };
+
+    // ── Auto-scroll to today ──
+    requestAnimationFrame(() => {
+      const visibleW = scrollEl.clientWidth - NAME_COL_W;
+      scrollEl.scrollLeft = Math.max(0, todayX - visibleW / 2);
+    });
+  }
+
+  /* ═══════════════════════════════════════
+     DATA LOADING
+  ═══════════════════════════════════════ */
+  async function loadCalendar() {
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('calendar-wrapper').style.display = 'none';
+    document.getElementById('gantt-view').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+
+    try {
+      const res = await fetch('http://localhost:3000/api/events');
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      allEvents = await res.json();
+
+      document.getElementById('loading').style.display = 'none';
+
+      const filtered = filterEvents();
+      document.getElementById('filter-count').textContent = `${filtered.length} cuenta${filtered.length !== 1 ? 's' : ''}`;
+
+      if (currentView === 'calendar') {
+        document.getElementById('calendar-wrapper').style.display = 'block';
+        initCalendar(filtered);
+      } else {
+        document.getElementById('gantt-view').style.display = 'block';
+        renderGantt(filtered);
+      }
+
+    } catch (err) {
+      document.getElementById('loading').style.display = 'none';
+      const el = document.getElementById('error-msg');
+      el.style.display = 'block';
+      el.textContent = `Error al cargar los datos: ${err.message}`;
+    }
+  }
+
+  async function refreshData() {
+    const btn = document.getElementById('btn-refresh');
+    btn.classList.add('loading');
+    await fetch('http://localhost:3000/api/refresh', { method: 'POST' });
+    await loadCalendar();
+    btn.classList.remove('loading');
+  }
+
+  loadCalendar();
+</script>
+</body>
+</html>
