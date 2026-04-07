@@ -5,9 +5,8 @@ const app = express();
 const PORT = 3000;
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
-const DATABASE_ID = '22dd8d54553b45c2902448837ef16a13';
+const ORG_DB_ID = '35ec49b7-371e-476f-a9a2-bf5db46bff82'; // Registro de Organizaciones
 
-// Allow requests from the preview panel and local file opens
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -18,29 +17,23 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-async function fetchAllNotionPages() {
+// Fetch all active, non-antiguo accounts from Registro de Organizaciones
+async function fetchActiveOrgs() {
   const pages = [];
-  let cursor = undefined;
+  let cursor;
 
-  // Filter at query time: only fetch projects with deadline >= 2026-01-01
-  // OR projects that are active/backlog without any deadline
-  const notionFilter = {
-    or: [
-      { property: 'Deadline', date: { on_or_after: '2026-01-01' } },
-      {
-        and: [
-          { property: 'Deadline', date: { is_empty: true } },
-          { property: 'Estado', status: { does_not_equal: 'Listo' } },
-        ],
-      },
+  const filter = {
+    and: [
+      { property: 'Antiguo?', checkbox: { equals: false } },
+      { property: 'Esta activa?', formula: { checkbox: { equals: true } } },
     ],
   };
 
   do {
-    const body = { page_size: 100, filter: notionFilter };
+    const body = { page_size: 100, filter };
     if (cursor) body.start_cursor = cursor;
 
-    const response = await fetch(`https://api.notion.com/v1/databases/${DATABASE_ID}/query`, {
+    const response = await fetch(`https://api.notion.com/v1/databases/${ORG_DB_ID}/query`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${NOTION_TOKEN}`,
@@ -62,33 +55,6 @@ async function fetchAllNotionPages() {
   return pages;
 }
 
-function extractAccountName(props, title) {
-  // 1) Cuenta Formula (formula field derived from the Cuenta relation)
-  const cuentaFormula = props['Cuenta Formula']?.formula?.string;
-  if (cuentaFormula) return cuentaFormula.trim();
-
-  // 2) Nombre rollup (rollup of the Cuenta relation title)
-  const nombreArray = props['Nombre']?.rollup?.array;
-  if (nombreArray && nombreArray.length > 0) {
-    const text = nombreArray[0]?.title?.[0]?.plain_text;
-    if (text) return text.trim();
-  }
-
-  // 3) Extract from task title: "Descripción + CLIENTE - FINALIZÓ" or "Descripción + CLIENTE"
-  if (title) {
-    const plusIdx = title.lastIndexOf('+');
-    if (plusIdx !== -1) {
-      let clientPart = title.slice(plusIdx + 1).trim();
-      // Remove trailing status like "- FINALIZÓ", "- FINALIZO", "- EN PROGRESO", etc.
-      clientPart = clientPart.replace(/\s*-\s*(FINALIZ[OÓ]|EN PROGRESO|BACKLOG|LISTO|DONE).*$/i, '').trim();
-      if (clientPart.length > 0) return clientPart;
-    }
-  }
-
-  return null;
-}
-
-// Cache to avoid hammering Notion on every request
 let eventsCache = null;
 let cacheTTL = 0;
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
@@ -100,78 +66,68 @@ app.get('/api/events', async (req, res) => {
       return res.json(eventsCache);
     }
 
-    const pages = await fetchAllNotionPages();
+    const orgs = await fetchActiveOrgs();
 
-    // Group projects by account name
-    const accountMap = {};
-
-    for (const page of pages) {
-      const props = page.properties;
-      const title = props['Tarea']?.title?.[0]?.plain_text || '';
-      const accountName = extractAccountName(props, title);
-      if (!accountName) continue;
-
-      const wonRaw = props['Fecha WON']?.rollup?.array?.[0]?.date?.start;
-      const deadlineRaw = props['Deadline']?.date?.start;
-
-      if (!wonRaw && !deadlineRaw) continue;
-
-      if (!accountMap[accountName]) {
-        accountMap[accountName] = {
-          name: accountName,
-          wonDates: [],
-          deadlines: [],
-          estados: new Set(),
-        };
-      }
-
-      if (wonRaw) accountMap[accountName].wonDates.push(new Date(wonRaw));
-      if (deadlineRaw) accountMap[accountName].deadlines.push(new Date(deadlineRaw));
-
-      const estado = props['Estado']?.status?.name;
-      if (estado) accountMap[accountName].estados.add(estado);
-    }
-
-    // Build FullCalendar events: one per account
-    const CUTOFF = new Date('2026-01-01');
-    // "Infinite" end: 2 years from now, used for no-deadline accounts
     const FAR_FUTURE = new Date();
     FAR_FUTURE.setFullYear(FAR_FUTURE.getFullYear() + 2);
+
     const events = [];
 
-    for (const acc of Object.values(accountMap)) {
-      if (acc.wonDates.length === 0) continue;
+    for (const org of orgs) {
+      const props = org.properties;
 
-      const hasDeadline = acc.deadlines.length > 0;
-      const latestDeadline = hasDeadline ? new Date(Math.max(...acc.deadlines)) : null;
+      // Account name — skip if contains ANTIGUO/ANTIGUA (double check)
+      const name = props['Nombre']?.title?.[0]?.plain_text?.trim();
+      if (!name) continue;
+      if (/ANTIG[UÜ][AO]/i.test(name)) continue;
 
-      // Skip if ALL deadlines are before cutoff (no active/future work)
-      if (hasDeadline && latestDeadline < CUTOFF) continue;
+      // WON dates — rollup array of date objects (one per opportunity)
+      const wonDates = (props['WON Date']?.rollup?.array || [])
+        .map(x => x.date?.start)
+        .filter(Boolean)
+        .map(d => new Date(d));
 
-      const startDate = new Date(Math.min(...acc.wonDates));
-      const endDate = hasDeadline ? latestDeadline : null;
+      // Deadlines — rollup array of date objects (one per delivery project)
+      const deadlines = (props['Deadline']?.rollup?.array || [])
+        .map(x => x.date?.start)
+        .filter(Boolean)
+        .map(d => new Date(d));
 
-      // For FullCalendar: infinite accounts get FAR_FUTURE as end
-      const calendarEnd = endDate ? new Date(endDate.getTime() + 86400000) : new Date(FAR_FUTURE);
+      // Estados — rollup of the "Estado" status field from Squad Cuentas projects
+      const estados = (props['Estado Proyectos']?.rollup?.array || [])
+        .map(x => x.status?.name || x.select?.name)
+        .filter(Boolean);
 
-      const estados = [...acc.estados];
+      // Need at least a WON date to plot the event
+      if (wonDates.length === 0) continue;
+
+      const startDate = new Date(Math.min(...wonDates));
+      const hasDeadline = deadlines.length > 0;
+      const endDate = hasDeadline ? new Date(Math.max(...deadlines)) : null;
+
+      // Calendar end (FullCalendar all-day end is exclusive → +1 day)
+      const calendarEnd = endDate
+        ? new Date(endDate.getTime() + 86400000)
+        : new Date(FAR_FUTURE);
+
+      // Color by active status
       let color;
-      if (estados.every(e => e === 'Listo')) {
-        color = '#6c757d';
-      } else if (estados.includes('En progreso')) {
-        color = '#198754';
+      if (estados.includes('En progreso')) {
+        color = '#198754'; // green
+      } else if (estados.includes('Backlog')) {
+        color = '#fd7e14'; // orange
       } else {
-        color = '#fd7e14';
+        color = '#6c757d'; // gray fallback
       }
 
       events.push({
-        title: acc.name,
+        title: name,
         start: startDate.toISOString().split('T')[0],
         end: calendarEnd.toISOString().split('T')[0],
         color,
         extendedProps: {
-          estados,
-          projectCount: acc.wonDates.length,
+          estados: [...new Set(estados)],
+          projectCount: wonDates.length,
           deadlineDisplay: endDate ? endDate.toISOString().split('T')[0] : null,
           wonDisplay: startDate.toISOString().split('T')[0],
           noDeadline: !hasDeadline,
@@ -179,7 +135,7 @@ app.get('/api/events', async (req, res) => {
       });
     }
 
-    // Sort by start date descending
+    // Sort by start date descending (most recent first)
     events.sort((a, b) => new Date(b.start) - new Date(a.start));
 
     eventsCache = events;
@@ -192,7 +148,6 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// Force cache refresh
 app.post('/api/refresh', (req, res) => {
   eventsCache = null;
   cacheTTL = 0;
